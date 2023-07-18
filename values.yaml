@@ -1,0 +1,340 @@
+zeebe:
+  clusterSize: 1
+  partitionCount: 1
+  replicationFactor: 1
+  pvcSize: 4Gi
+  containerSecurityContext: 
+    privileged: false
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  extraVolumes: 
+    - name: tmp
+      emptyDir: {}
+    - name: camunda
+      emptyDir: {}
+  extraVolumeMounts:
+    - mountPath: /tmp
+      name: tmp
+    - mountPath: /camunda
+      name: camunda 
+
+
+  serviceAccount:
+    # ServiceAccount.name can be used to set the name of the broker service account
+    name: "camundapoc-zeebe-svcacc"
+  automountServiceAccountToken: false
+
+connectors:
+  containerSecurityContext: 
+    privileged: false
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  serviceAccount:
+    # ServiceAccount.enabled if true, enables the Web Modeler service account
+    enabled: false
+  automountServiceAccountToken: false
+  extraVolumes: 
+    - name: tmp
+      emptyDir: {}
+  extraVolumeMounts:
+    - mountPath: /tmp
+      name: tmp
+
+
+elasticsearch:
+  replicas: 1
+  volumeClaimTemplate:
+    accessModes: ["ReadWriteOnce"]
+    resources:
+      requests:
+        storage: 1Gi
+  sysctlInitContainer:
+    enabled: false
+  image: "elasticsearch"
+  imageTag: 7.17.10
+  securityContext: 
+    privileged: false
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+    
+  extraVolumes: 
+  - name: tmp
+    emptyDir: {}
+  - name: logs
+    emptyDir: {}
+  - name: config
+    emptyDir: {}
+  extraVolumeMounts:
+  - mountPath: /tmp
+    name: tmp
+  - mountPath: /usr/share/elasticsearch/logs
+    name: logs
+  - mountPath: /usr/share/elasticsearch/config
+    name: config
+  extraInitContainers:
+    - name: copy-configs
+      image:  "elasticsearch:7.17.10"
+      imagePullPolicy: "Always"
+      command: ["sh", "-c", "cp -ar /usr/share/elasticsearch/config/* /config"]
+      securityContext: 
+        privileged: false
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 1000
+      volumeMounts:
+      - name: config
+        mountPath: /config
+# This file deliberately contains only the values that differ from the defaults.
+# For changes and documentation, use your favorite diff tool to compare it with:
+# https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform
+
+
+
+
+
+identity:
+  containerSecurityContext: 
+    privileged: false
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  extraVolumes: 
+    - name: tmp
+      emptyDir: {}
+    - name: camunda
+      emptyDir: {}
+  extraVolumeMounts:
+    - mountPath: /tmp
+      name: tmp
+    - mountPath: /camunda
+      name: camunda      
+
+  serviceAccount:
+    # ServiceAccount.name can be used to set the name of the broker service account
+    name: "camundapoc-identity-svcacc"
+  automountServiceAccountToken: false
+
+  keycloak:
+    containerSecurityContext:
+      enabled: true 
+      privileged: false
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      runAsUser: 1000
+    serviceAccount:
+      # ServiceAccount.name can be used to set the name of the broker service account
+      name: "camundapoc-keycloak-svcacc"
+    automountServiceAccountToken: false
+    image:
+      repository: bitnami/keycloak
+      tag: 19.0.3
+    extraVolumes: 
+    - name: config
+      emptyDir: {}
+    - name: quarkus
+      emptyDir: {}
+    - name: tmp
+      emptyDir: {}
+    - name: camunda-theme
+      emptyDir:
+        sizeLimit: 10Mi
+
+    extraVolumeMounts:
+    - mountPath: /opt/bitnami/keycloak/conf/
+      name: config
+    - mountPath: /opt/bitnami/keycloak/lib/quarkus
+      name: quarkus
+    - name: camunda-theme
+      mountPath: /opt/bitnami/keycloak/themes/identity
+    - mountPath: /tmp
+      name: tmp
+
+    initContainers:
+    - name: copy-camunda-theme
+      image: camunda/identity:8.2.7
+      imagePullPolicy: "Always"
+      command: ["sh", "-c", "cp -a /app/keycloak-theme/* /mnt "]
+      volumeMounts:
+      - name: camunda-theme
+        mountPath: /mnt
+      securityContext:
+        privileged: false
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 1000
+    - name: copy-configs
+      image: bitnami/keycloak:19.0.3
+      imagePullPolicy: "Always"
+      command: ["sh", "-c", "cp -ar /opt/bitnami/keycloak/conf/* /config  && cp -a /opt/bitnami/keycloak/lib/quarkus/* /quarkus"]    
+      securityContext: 
+        privileged: false
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 1000
+      volumeMounts:
+      - name: config
+        mountPath: /config
+      - name: quarkus
+        mountPath: /quarkus
+    externalDatabase:
+      host: camundapostgres.postgres.database.azure.com 
+      port: 5432
+      database: camundapostgres
+      user: demo@camundapostgres
+      password: Jingle@123
+      existingSecret: ""
+      existingSecretHostKey: ""
+      existingSecretPortKey: ""
+      existingSecretUserKey: ""
+      existingSecretDatabaseKey: ""
+      existingSecretPasswordKey: ""
+
+    postgresql:
+      enabled: false
+      containerSecurityContext:
+        enabled: true 
+        privileged: false
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 1000
+      primary:
+        extraVolumes: 
+          - name: tmp
+            emptyDir: {}
+
+        extraVolumeMounts:
+          - mountPath: /tmp
+            name: tmp
+      image:
+        repository: bitnami/postgresql
+        tag: 15.3.0
+      
+      # initContainers:
+      # - name: copy-camunda-theme
+  
+      #   imagePullPolicy: "{{ .Values.global.image.pullPolicy }}"
+      #   command: ["sh", "-c", "cp -a /app/keycloak-theme/* /mnt"]
+      #   volumeMounts:
+      #   - name: camunda-theme
+      #     mountPath: /mnt
+      #   securityContext:
+      #     privileged: false
+      #     readOnlyRootFilesystem: true
+      #     allowPrivilegeEscalation: false
+      #     runAsNonRoot: true
+      #     runAsUser: 1000 
+
+operate:
+  containerSecurityContext: 
+    privileged: false
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  extraVolumes: 
+    - name: tmp
+      emptyDir: {}
+    - name: camunda
+      emptyDir: {}
+  extraVolumeMounts:
+    - mountPath: /tmp
+      name: tmp
+    - mountPath: /camunda
+      name: camunda      
+  serviceAccount:
+    # ServiceAccount.name can be used to set the name of the broker service account
+    name: "camundapoc-operate-svcacc"
+  automountServiceAccountToken: false
+
+
+optimize:
+  containerSecurityContext: 
+    privileged: false
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  extraVolumes: 
+    - name: tmp
+      emptyDir: {}
+    - name: camunda
+      emptyDir: {}
+  extraVolumeMounts:
+    - mountPath: /tmp
+      name: tmp
+    - mountPath: /camunda
+      name: camunda      
+
+  serviceAccount:
+    # ServiceAccount.name can be used to set the name of the broker service account
+    name: "camundapoc-optimize-svcacc"
+  automountServiceAccountToken: false
+
+tasklist:
+  containerSecurityContext: 
+    privileged: false
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  extraVolumes: 
+    - name: tmp
+      emptyDir: {}
+    - name: camunda
+      emptyDir: {}
+  extraVolumeMounts:
+    - mountPath: /tmp
+      name: tmp
+    - mountPath: /camunda
+      name: camunda      
+
+webModeler:
+  # The context path is used for the web application that will be accessed by users in the browser.
+  # In addition, a WebSocket endpoint will be exposed on "[contextPath]-ws", e.g. "/modeler-ws".
+  containerSecurityContext: 
+    privileged: false
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+
+zeebe-gateway:
+  # Replicas defines how many standalone gateways are deployed
+  replicas: 1
+  containerSecurityContext: 
+    privileged: false
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  extraVolumes: 
+    - name: tmp
+      emptyDir: {}
+    - name: camunda
+      emptyDir: {}
+  extraVolumeMounts:
+    - mountPath: /tmp
+      name: tmp
+    - mountPath: /camunda
+      name: camunda  
+      
+  serviceAccount:
+    # ServiceAccount.name can be used to set the name of the broker service account
+    name: "camundapoc-zeebegateway-svcacc"
+  automountServiceAccountToken: false
+
+    
+
+
